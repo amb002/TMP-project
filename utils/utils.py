@@ -28,16 +28,7 @@ def get_fingerprint():
         return False
     
     image_data = finger.get_fpdata(sensorbuffer="image")
-
-    image_width = 256
-    image_height = 288
-
-    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
-
-    img = Image.fromarray(img_array, mode="L")
-
-    img.save("fingerprint_image.png")
-    print("Fingerprint image saved as 'fingerprint_image.png'")
+    save_fingerprint_image_as_png(image_data=image_data)
     return True
 
 
@@ -103,17 +94,12 @@ def save_fingerprint_image():
     print("Fingerprint image data saved to 'fingerprint_image_data.txt'")
 
 
-def save_fingerprint_image_as_png():
+def save_fingerprint_image_as_png(image_data):
     """Capture a fingerprint image and save it as a PNG file."""
-    print("Waiting for image...")
-    while finger.get_image() != adafruit_fingerprint.OK:
-        pass
-    print("Image captured. Processing raw data...")
-
-    image_data = finger.get_fpdata(sensorbuffer="image")
+    print("Started saving image process")
 
     image_width = 256
-    image_height = 288
+    image_height = 144
 
     img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
 
@@ -221,7 +207,6 @@ while True:
     if c == "f":
         if get_fingerprint():
             print("Detected #", finger.finger_id, "with confidence", finger.confidence)
-            save_fingerprint_image()
         else:
             print("Finger not found")
     if c == "d":

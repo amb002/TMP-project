@@ -1,0 +1,4 @@
+pydantic
+fastapi
+uvicorn
+adafruit-circuitpython-fingerprint

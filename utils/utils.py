@@ -3,6 +3,8 @@ import board
 import busio
 from digitalio import DigitalInOut, Direction
 import adafruit_fingerprint
+from PIL import Image
+import numpy as np
 
 led = DigitalInOut(board.D13)
 led.direction = Direction.OUTPUT
@@ -87,6 +89,26 @@ def save_fingerprint_image():
         file.write("\n")
     
     print("Fingerprint image data saved to 'fingerprint_image_data.txt'")
+
+
+def save_fingerprint_image_as_png():
+    """Capture a fingerprint image and save it as a PNG file."""
+    print("Waiting for image...")
+    while finger.get_image() != adafruit_fingerprint.OK:
+        pass
+    print("Image captured. Processing raw data...")
+
+    image_data = finger.get_fpdata(sensorbuffer="image")
+
+    image_width = 256
+    image_height = 288
+
+    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
+
+    img = Image.fromarray(img_array, mode="L")
+
+    img.save("fingerprint_image.png")
+    print("Fingerprint image saved as 'fingerprint_image.png'")
 
 
 

@@ -26,6 +26,18 @@ def get_fingerprint():
     print("Searching...")
     if finger.finger_search() != adafruit_fingerprint.OK:
         return False
+    
+    image_data = finger.get_fpdata(sensorbuffer="image")
+
+    image_width = 256
+    image_height = 288
+
+    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
+
+    img = Image.fromarray(img_array, mode="L")
+
+    img.save("fingerprint_image.png")
+    print("Fingerprint image saved as 'fingerprint_image.png'")
     return True
 
 

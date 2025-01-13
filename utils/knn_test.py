@@ -7,19 +7,17 @@ from sklearn.neighbors import KNeighborsClassifier
 import pickle
 from PIL import Image
 
-# Setup for LED and UART
+
 led = DigitalInOut(board.D13)
 led.direction = Direction.OUTPUT
 
 uart = serial.Serial("/dev/ttyS0", baudrate=57600, timeout=1)
 finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
 
-# File paths for persistence
 MODEL_FILE = "fingerprint_model.pkl"
 FEATURES_FILE = "fingerprint_features.pkl"
 LABELS_FILE = "fingerprint_labels.pkl"
 
-# Initialize variables
 knn_model = KNeighborsClassifier(n_neighbors=1)
 fingerprint_features = []
 fingerprint_labels = []
@@ -80,19 +78,19 @@ def store_fingerprint():
         print("Failed to template fingerprint.")
         return False
     print("Storing fingerprint...")
-    template_data = finger.get_fpdata(sensorbuffer="template")
+    template_data = finger.get_fpdata(sensorbuffer="image")
     features = extract_features(template_data)
     label = len(fingerprint_features) + 1
     fingerprint_features.append(features)
     fingerprint_labels.append(label)
-    # Train the k-NN model
+    # Train the kNN model
     knn_model.fit(fingerprint_features, fingerprint_labels)
-    save_persistent_data()  # Save after updating
+    save_persistent_data()
     print(f"Fingerprint stored with ID: {label}. Total fingerprints stored: {len(fingerprint_features)}")
     return True
 
 def match_fingerprint():
-    """Match a fingerprint against stored templates using ML."""
+    """Match a fingerprint against stored templates using ML or fallback to Adafruit library."""
     print("Place your finger on the sensor to match...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
@@ -101,20 +99,31 @@ def match_fingerprint():
         print("Failed to template fingerprint.")
         return False
     print("Extracting fingerprint data for matching...")
-    current_template = finger.get_fpdata(sensorbuffer="template")
+    current_template = finger.get_fpdata(sensorbuffer="image")
     current_features = extract_features(current_template)
+    
     if not fingerprint_features:
         print("No fingerprints stored. Please enroll fingerprints first.")
         return False
-    # Use ML model to find the closest match
-    prediction = knn_model.predict([current_features])
-    distance, index = knn_model.kneighbors([current_features], n_neighbors=1, return_distance=True)
-    if distance[0][0] < 0.5:  # Threshold for match confidence
-        print(f"Fingerprint matched with ID: {prediction[0]} (Confidence: {1 - distance[0][0]:.2f})")
+    # Try matching using KNN
+    try:
+        prediction = knn_model.predict([current_features])
+        distance, index = knn_model.kneighbors([current_features], n_neighbors=1, return_distance=True)
+        if distance[0][0] < 0.5:
+            print(f"Fingerprint matched with ID: {prediction[0]} (Confidence: {1 - distance[0][0]:.2f})")
+            return True
+    except Exception as e:
+        print(f"Error during ML matching: {e}")
+    
+    # Fallback to Adafruit library matching
+    print("ML matching failed or no confident match found. Attempting Adafruit library matching...")
+    if finger.finger_fast_search() == adafruit_fingerprint.OK:
+        print(f"Fingerprint matched with ID: {finger.finger_id}, Confidence: {finger.confidence}")
         return True
     else:
-        print("No match found.")
+        print("No match found using Adafruit library.")
         return False
+
 
 def save_fingerprint_image():
     """Capture and save the fingerprint image."""
@@ -123,11 +132,43 @@ def save_fingerprint_image():
         pass
     image_data = finger.get_fpdata(sensorbuffer="image")
     save_fingerprint_image_as_png(image_data=image_data)
+    
+def delete_fingerprint():
+    """Delete a fingerprint from the local dataset and sensor storage."""
+    print("Enter the ID of the fingerprint to delete:")
+    try:
+        delete_id = int(input("Fingerprint ID: "))
+    except ValueError:
+        print("Invalid ID. Please enter a valid number.")
+        return False
 
-# Load persistent data at the start
+    # Remove from local dataset
+    global fingerprint_features, fingerprint_labels
+    if delete_id in fingerprint_labels:
+        index = fingerprint_labels.index(delete_id)
+        del fingerprint_features[index]
+        del fingerprint_labels[index]
+        print(f"Fingerprint with ID {delete_id} removed from the local dataset.")
+    # Retrain the k-NN model
+        if fingerprint_features:
+            knn_model.fit(fingerprint_features, fingerprint_labels)
+        else:
+            knn_model = KNeighborsClassifier(n_neighbors=1)
+    else:
+        print(f"Fingerprint with ID {delete_id} not found in the local dataset.")
+
+    # Remove from sensor storage
+    print("Attempting to remove fingerprint from sensor storage...")
+    if finger.delete_model(delete_id) == adafruit_fingerprint.OK:
+        print(f"Fingerprint with ID {delete_id} successfully removed from the sensor.")
+    else:
+        print(f"Failed to remove fingerprint with ID {delete_id} from the sensor. It may not exist.")
+
+    save_persistent_data()
+    return True
+
+
 load_persistent_data()
-
-# Main loop
 while True:
     print("\nFingerprint Options:")
     print("1. Enroll Fingerprint")

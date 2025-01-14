@@ -4,9 +4,11 @@ import adafruit_fingerprint
 import serial
 import numpy as np
 import pickle
-from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from PIL import Image
+import cv2
 
 # GPIO and Fingerprint Sensor Setup
 led = DigitalInOut(board.D13)
@@ -20,24 +22,23 @@ FEATURES_FILE = "fingerprint_features.pkl"
 LABELS_FILE = "fingerprint_labels.pkl"
 
 # Initialize ML model and data
-svm_model = SVC(probability=True, kernel="linear")
+rf_model = RandomForestClassifier(n_estimators=100)
 scaler = StandardScaler()
+pca = PCA(n_components=50)  # Reduce dimensions to 50
 fingerprint_features = []
 fingerprint_labels = []
 
 # Utility Functions
 def load_persistent_data():
     """Load model, features, and labels from files."""
-    global svm_model, fingerprint_features, fingerprint_labels, scaler
+    global rf_model, fingerprint_features, fingerprint_labels, scaler, pca
     try:
         with open(MODEL_FILE, "rb") as model_file:
-            svm_model = pickle.load(model_file)
+            rf_model = pickle.load(model_file)
         with open(FEATURES_FILE, "rb") as features_file:
             fingerprint_features = pickle.load(features_file)
         with open(LABELS_FILE, "rb") as labels_file:
             fingerprint_labels = pickle.load(labels_file)
-        if fingerprint_features:
-            fingerprint_features = scaler.fit_transform(fingerprint_features)
         print("Persistent data loaded successfully.")
     except FileNotFoundError:
         print("No persistent data found. Starting fresh.")
@@ -48,7 +49,7 @@ def save_persistent_data():
     """Save model, features, and labels to files."""
     try:
         with open(MODEL_FILE, "wb") as model_file:
-            pickle.dump(svm_model, model_file)
+            pickle.dump(rf_model, model_file)
         with open(FEATURES_FILE, "wb") as features_file:
             pickle.dump(fingerprint_features, features_file)
         with open(LABELS_FILE, "wb") as labels_file:
@@ -57,27 +58,32 @@ def save_persistent_data():
     except Exception as e:
         print(f"Error saving persistent data: {e}")
 
-def extract_features(image_data):
+def preprocess_image(image_data):
     """
-    Extract features from the fingerprint image.
-    The image is flattened into a 1D feature vector.
+    Preprocess the fingerprint image:
+    - Resize
+    - Normalize
+    - Apply Sobel edge detection
     """
     image_width = 256
     image_height = 144
     img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
-    # Flatten the image to a 1D array
-    return img_array.flatten()
+    
+    # Resize to smaller dimensions
+    resized = cv2.resize(img_array, (128, 128))
+    
+    # Normalize (contrast enhancement)
+    normalized = cv2.equalizeHist(resized)
+    
+    # Apply Sobel edge detection
+    sobel_x = cv2.Sobel(normalized, cv2.CV_64F, 1, 0, ksize=3)
+    sobel_y = cv2.Sobel(normalized, cv2.CV_64F, 0, 1, ksize=3)
+    sobel_combined = cv2.magnitude(sobel_x, sobel_y)  # Combine gradients
+    
+    # Scale and flatten
+    sobel_scaled = cv2.convertScaleAbs(sobel_combined)
+    return sobel_scaled.flatten()
 
-def save_fingerprint_image_as_png(image_data):
-    """Save the fingerprint image as a PNG file."""
-    image_width = 256
-    image_height = 144
-    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
-    img = Image.fromarray(img_array, mode="L")
-    img.save("fingerprint_image.png")
-    print("Fingerprint image saved as 'fingerprint_image.png'")
-
-# Core Functions
 def store_fingerprint():
     """Store a fingerprint template and train the ML model."""
     print("Place your finger on the sensor to enroll...")
@@ -85,7 +91,7 @@ def store_fingerprint():
         pass
     print("Extracting fingerprint image...")
     image_data = finger.get_fpdata(sensorbuffer="image")
-    features = extract_features(image_data)
+    features = preprocess_image(image_data)
 
     # Check for duplicates
     if any(np.array_equal(features, stored_features) for stored_features in fingerprint_features):
@@ -96,10 +102,11 @@ def store_fingerprint():
     fingerprint_features.append(features)
     fingerprint_labels.append(label)
 
-    # Train the SVM model only if there are at least two classes
+    # Train the Random Forest model only if there are at least two classes
     if len(set(fingerprint_labels)) > 1:
         scaled_features = scaler.fit_transform(fingerprint_features)
-        svm_model.fit(scaled_features, fingerprint_labels)
+        reduced_features = pca.fit_transform(scaled_features)
+        rf_model.fit(reduced_features, fingerprint_labels)
 
     save_persistent_data()
     print(f"Fingerprint stored with ID: {label}. Total fingerprints stored: {len(fingerprint_labels)}")
@@ -112,18 +119,19 @@ def match_fingerprint():
         pass
     print("Extracting fingerprint image...")
     image_data = finger.get_fpdata(sensorbuffer="image")
-    current_features = extract_features(image_data)
+    current_features = preprocess_image(image_data)
 
     if not fingerprint_features:
         print("No fingerprints stored. Please enroll fingerprints first.")
         return False
 
-    # Check if we have enough data for SVM prediction
+    # Check if we have enough data for Random Forest prediction
     if len(set(fingerprint_labels)) > 1:
         try:
-            current_features_scaled = scaler.transform([current_features])
-            prediction = svm_model.predict(current_features_scaled)
-            probabilities = svm_model.predict_proba(current_features_scaled)[0]
+            scaled_features = scaler.transform([current_features])
+            reduced_features = pca.transform(scaled_features)
+            prediction = rf_model.predict(reduced_features)
+            probabilities = rf_model.predict_proba(reduced_features)[0]
             confidence = max(probabilities)
             if confidence > 0.7:  # Threshold for confidence
                 print(f"Fingerprint matched with ID: {prediction[0]} (Confidence: {confidence:.2f})")
@@ -133,52 +141,8 @@ def match_fingerprint():
         except Exception as e:
             print(f"Error during ML matching: {e}")
 
-    # Fallback to simple matching for a single fingerprint
-    print("Using fallback matching for a single fingerprint...")
-    for i, stored_features in enumerate(fingerprint_features):
-        if np.array_equal(current_features, stored_features):
-            print(f"Fingerprint matched with ID: {fingerprint_labels[i]} (Fallback Matching)")
-            return True
-
     print("No match found.")
     return False
-
-def delete_fingerprint():
-    """Delete a fingerprint from the local dataset."""
-    print("Enter the ID of the fingerprint to delete:")
-    try:
-        delete_id = int(input("Fingerprint ID: "))
-    except ValueError:
-        print("Invalid ID. Please enter a valid number.")
-        return False
-
-    global fingerprint_features, fingerprint_labels
-    if delete_id in fingerprint_labels:
-        index = fingerprint_labels.index(delete_id)
-        del fingerprint_features[index]
-        del fingerprint_labels[index]
-        print(f"Fingerprint with ID {delete_id} removed from the local dataset.")
-
-        # Retrain the SVM model only if we have at least two classes
-        if len(set(fingerprint_labels)) > 1:
-            scaled_features = scaler.fit_transform(fingerprint_features)
-            svm_model.fit(scaled_features, fingerprint_labels)
-        else:
-            svm_model = SVC(probability=True, kernel="linear")  # Reset model
-
-    else:
-        print(f"Fingerprint with ID {delete_id} not found in the local dataset.")
-
-    save_persistent_data()
-    return True
-
-def save_fingerprint_image():
-    """Capture and save the fingerprint image."""
-    print("Place your finger on the sensor to capture the image...")
-    while finger.get_image() != adafruit_fingerprint.OK:
-        pass
-    image_data = finger.get_fpdata(sensorbuffer="image")
-    save_fingerprint_image_as_png(image_data=image_data)
 
 # Main Menu
 load_persistent_data()
@@ -186,9 +150,7 @@ while True:
     print("\nFingerprint Options:")
     print("1. Enroll Fingerprint")
     print("2. Match Fingerprint")
-    print("3. Delete Fingerprint")
-    print("4. Save Fingerprint Image")
-    print("5. Exit")
+    print("3. Exit")
     option = input("Select an option: ")
 
     if option == "1":
@@ -196,10 +158,6 @@ while True:
     elif option == "2":
         match_fingerprint()
     elif option == "3":
-        delete_fingerprint()
-    elif option == "4":
-        save_fingerprint_image()
-    elif option == "5":
         print("Exiting...")
         break
     else:

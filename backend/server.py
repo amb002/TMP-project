@@ -91,7 +91,7 @@ class EnrollRequest(BaseModel):
 
 @app.post("/enroll")
 def enroll_fingerprint(request: EnrollRequest):
-    """Enroll a new fingerprint."""
+    """Enroll a new fingerprint and store it in Firebase."""
     print("Place your finger on the sensor to enroll...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
@@ -101,14 +101,27 @@ def enroll_fingerprint(request: EnrollRequest):
     if request.id in fingerprint_labels:
         raise HTTPException(status_code=400, detail="ID already exists. Please choose a unique ID.")
 
+    # Extract template and features
     template_data = finger.get_fpdata(sensorbuffer="image")
     features = extract_features(template_data)
+
+    # Add fingerprint to local dataset
     fingerprint_features.append(features)
     fingerprint_labels.append(request.id)
     aliases[request.id] = request.alias
     knn_model.fit(fingerprint_features, fingerprint_labels)
+
+    # Save fingerprint to Firebase
+    ref = db.reference(f"fingerprints/{request.id}")
+    ref.set({
+        "id": request.id,
+        "alias": request.alias,
+        "raw_data": template_data.tolist()  # Convert to list for JSON compatibility
+    })
+
     save_persistent_data()
-    return {"message": "Fingerprint enrolled", "id": request.id, "alias": request.alias}
+    return {"message": "Fingerprint enrolled and stored in Firebase", "id": request.id, "alias": request.alias}
+
 
 @app.post("/match")
 def match_fingerprint():

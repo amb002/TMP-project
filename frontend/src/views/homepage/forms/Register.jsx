@@ -5,23 +5,29 @@ const RegisterFingerprint = () => {
   const [id, setId] = useState("");
   const [alias, setAlias] = useState("");
   const [message, setMessage] = useState("");
-  const [uniqueId, setUniqueId] = useState("");
 
   useEffect(() => {
     const fetchUniqueId = async () => {
       try {
         const response = await axios.get("http://127.0.0.1:8000/aliases");
         const aliases = response.data.aliases;
-        const usedIds = aliases.map((alias) => alias.id);
-        const nextId = Math.max(0, ...usedIds) + 1;
-        setUniqueId(nextId);
-        setId(nextId.toString());
+        if (aliases.length === 0) {
+          setId("1");
+        } else {
+          const usedIds = aliases.map((alias) => alias.id);
+          const nextId = Math.max(0, ...usedIds) + 1;
+          setId(nextId.toString());
+        }
       } catch (error) {
-        setMessage(
-          error.response
-            ? `Error: ${error.response.data.detail}`
-            : `Error: ${error.message}`
-        );
+        if (error.response && error.response.status === 404) {
+          setId("1");
+        } else {
+          setMessage(
+            error.response
+              ? `Error: ${error.response.data.detail}`
+              : `Error: ${error.message}`
+          );
+        }
       }
     };
 

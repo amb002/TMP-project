@@ -136,7 +136,25 @@ def get_matches(alias: str):
         "alias": alias,
         "matches": matches
     }
+    
+@app.get("/aliases")
+def get_aliases():
+    """Retrieve all fingerprint IDs and their aliases."""
+    ref = db.reference("fingerprints")
+    fingerprints = ref.get()
 
+    if not fingerprints:
+        raise HTTPException(status_code=404, detail="No fingerprints found.")
+
+    aliases = []
+    for fingerprint_id, data in fingerprints.items():
+        alias = data.get("alias", "Unknown")
+        aliases.append({
+            "id": int(fingerprint_id),
+            "alias": alias
+        })
+
+    return {"aliases": aliases}
 
 @app.get("/")
 def read_root():

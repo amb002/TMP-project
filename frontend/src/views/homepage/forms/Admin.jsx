@@ -4,7 +4,9 @@ import axios from "axios";
 const MatchList = () => {
   const [alias, setAlias] = useState("");
   const [matches, setMatches] = useState([]);
+  const [aliases, setAliases] = useState([]);
   const [error, setError] = useState("");
+  const [aliasError, setAliasError] = useState("");
 
   const handleSearch = async () => {
     setError("");
@@ -15,6 +17,18 @@ const MatchList = () => {
       setMatches(response.data.matches);
     } catch (err) {
       setError(err.response?.data?.detail || "An error occurred");
+    }
+  };
+
+  const handleShowAliases = async () => {
+    setAliasError("");
+    setAliases([]);
+
+    try {
+      const response = await axios.get("http://localhost:8000/aliases");
+      setAliases(response.data.aliases);
+    } catch (err) {
+      setAliasError(err.response?.data?.detail || "An error occurred while fetching aliases.");
     }
   };
 
@@ -29,8 +43,11 @@ const MatchList = () => {
           placeholder="Enter alias"
           style={{ padding: "10px", marginRight: "10px", width: "300px" }}
         />
-        <button onClick={handleSearch} style={{ padding: "10px" }}>
+        <button onClick={handleSearch} style={{ padding: "10px", marginRight: "10px" }}>
           Search
+        </button>
+        <button onClick={handleShowAliases} style={{ padding: "10px" }}>
+          Show All Aliases
         </button>
       </div>
 
@@ -59,6 +76,30 @@ const MatchList = () => {
           </table>
         </div>
       )}
+
+      {aliases.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h2>All Aliases</h2>
+          <table border="1" style={{ width: "100%", marginTop: "10px", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Alias</th>
+              </tr>
+            </thead>
+            <tbody>
+              {aliases.map((alias, index) => (
+                <tr key={index}>
+                  <td>{alias.id}</td>
+                  <td>{alias.alias}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {aliasError && <p style={{ color: "red", marginTop: "20px" }}>{aliasError}</p>}
     </div>
   );
 };

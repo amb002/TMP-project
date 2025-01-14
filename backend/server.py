@@ -10,6 +10,7 @@ import board
 import adafruit_fingerprint
 import serial
 from datetime import datetime
+import pytz
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -57,6 +58,7 @@ def enroll_fingerprint(request: EnrollRequest):
     })
     return {"message": "Fingerprint enrolled", "id": request.id, "alias": request.alias}
 
+
 @app.post("/match")
 def match_fingerprint():
     """Match a fingerprint."""
@@ -70,13 +72,20 @@ def match_fingerprint():
 
     matched_id = finger.finger_id
     ref = db.reference(f"fingerprints/{matched_id}")
-
+    
+    # Retrieve alias or default to "Unknown"
     alias = ref.get().get("alias", "Unknown")
     
-    timestamp = datetime.utcnow().isoformat()
+    # Get current time in Romania (EET)
+    utc_now = datetime.utcnow()
+    romania_tz = pytz.timezone("Europe/Bucharest")
+    romania_time = utc_now.astimezone(romania_tz)
+    human_readable_timestamp = romania_time.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Add timestamp for the match
     matches_ref = ref.child("matches")
     matches_ref.push({
-        "timestamp": timestamp
+        "timestamp": human_readable_timestamp
     })
 
     return {
@@ -84,8 +93,9 @@ def match_fingerprint():
         "id": matched_id,
         "alias": alias,
         "confidence": finger.confidence,
-        "timestamp": timestamp
+        "timestamp": human_readable_timestamp
     }
+
 
 @app.post("/delete/{fingerprint_id}")
 def delete_fingerprint(fingerprint_id: int):

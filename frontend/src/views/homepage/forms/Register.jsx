@@ -1,60 +1,46 @@
-import React, { useEffect } from 'react';
-import { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import axios from "axios";
 
-function Register() {
-    const [message, setMessage] = useState("Please scan your fingerprint in order to register!");
-    const [isReady, setIsReady] = useState(false);
-    const [name, setName] = useState("");
+const RegisterFingerprint = () => {
+  const [id, setId] = useState("");
+  const [alias, setAlias] = useState("");
+  const [message, setMessage] = useState("");
 
-    const scanFingerprint = () => {
-        setTimeout(() => {
-            setMessage("Fingerprint successfully registered!");
-        }, 3000);
-    };
+  const handleRegister = async () => {
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/enroll", {
+        id: parseInt(id),
+        alias,
+      });
+      setMessage(`Success: ${response.data.message}`);
+    } catch (error) {
+      if (error.response) {
+        setMessage(`Error: ${error.response.data.detail}`);
+      } else {
+        setMessage(`Error: ${error.message}`);
+      }
+    }
+  };
 
-    const handleReset = () => {
-        setMessage("Please scan your fingerprint in order to register!");
-        setIsReady(false);
-    };
+  return (
+    <div>
+      <h1>Register Fingerprint</h1>
+      <input
+        type="number"
+        placeholder="Enter Fingerprint ID"
+        value={id}
+        onChange={(e) => setId(e.target.value)}
+      />
+      <input
+        type="text"
+        placeholder="Enter Alias"
+        value={alias}
+        onChange={(e) => setAlias(e.target.value)}
+      />
+      <button onClick={handleRegister}>REGISTER</button>
+      {message && <p>{message}</p>}
+    </div>
+  );
+};
 
-    const handleSubmit = async () => {
-        try {
-            const response = await axios.post("http://localhost:8000/register", {
-                name: name,
-                isReady: isReady,
-            });
-
-            console.log("Response from server:", response.data);
-        } catch (error) {
-            console.error("Error while sending data to the server:", error);
-        }
-    };
-
-    useEffect(() => {
-        scanFingerprint();
-    }, [message]);
-
-    return (
-        <div>
-            <h2>Register</h2>
-            <label>
-                {message}
-            </label>
-            <p></p>
-            <label>
-                Name:
-                <input
-                    type="text"
-                    name="name"
-                    onChange={(e) => { setName(e.target.value); }}
-                />
-            </label>
-            <br />
-            <button onClick={handleSubmit}>Submit</button>
-            <button onClick={handleReset}>Reset</button>
-        </div>
-    );
-}
-
-export default Register;
+export default RegisterFingerprint;

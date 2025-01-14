@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 
 const MatchFingerprint = () => {
+  const match_url = "http://localhost:8000/match";
   const [message, setMessage] = useState("");
   const [matchedId, setMatchedId] = useState(null);
   const [alias, setAlias] = useState("");
@@ -16,7 +17,7 @@ const MatchFingerprint = () => {
     setError("");
 
     try {
-      const response = await axios.post("http://localhost:8000/match");
+      const response = await axios.post(match_url);
       const data = response.data;
       setMessage(data.message);
       setMatchedId(data.id);

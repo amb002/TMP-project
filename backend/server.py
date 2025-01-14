@@ -73,16 +73,11 @@ def match_fingerprint():
     matched_id = finger.finger_id
     ref = db.reference(f"fingerprints/{matched_id}")
     
-    # Retrieve alias or default to "Unknown"
     alias = ref.get().get("alias", "Unknown")
     
-    # Get current time in Romania (EET)
-    utc_now = datetime.utcnow()
-    romania_tz = pytz.timezone("Europe/Bucharest")
-    romania_time = utc_now.astimezone(romania_tz)
-    human_readable_timestamp = romania_time.strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now()
+    human_readable_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Add timestamp for the match
     matches_ref = ref.child("matches")
     matches_ref.push({
         "timestamp": human_readable_timestamp

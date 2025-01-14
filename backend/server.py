@@ -13,6 +13,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 import pickle
 from PIL import Image
+import base64
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -89,9 +90,8 @@ class EnrollRequest(BaseModel):
     id: int
     alias: str
 
-@app.post("/enroll")
 def enroll_fingerprint(request: EnrollRequest):
-    """Enroll a new fingerprint and store it in Firebase."""
+    """Enroll a new fingerprint."""
     print("Place your finger on the sensor to enroll...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
@@ -101,26 +101,28 @@ def enroll_fingerprint(request: EnrollRequest):
     if request.id in fingerprint_labels:
         raise HTTPException(status_code=400, detail="ID already exists. Please choose a unique ID.")
 
-    # Extract template and features
     template_data = finger.get_fpdata(sensorbuffer="image")
     features = extract_features(template_data)
 
-    # Add fingerprint to local dataset
+    # Convert raw data to a Base64-encoded string
+    raw_data_str = base64.b64encode(bytearray(template_data)).decode("utf-8")
+
     fingerprint_features.append(features)
     fingerprint_labels.append(request.id)
     aliases[request.id] = request.alias
-    knn_model.fit(fingerprint_features, fingerprint_labels)
 
-    # Save fingerprint to Firebase
+    # Store in Firebase
     ref = db.reference(f"fingerprints/{request.id}")
     ref.set({
         "id": request.id,
         "alias": request.alias,
-        "raw_data": template_data
+        "raw_data": raw_data_str
     })
 
+    knn_model.fit(fingerprint_features, fingerprint_labels)
     save_persistent_data()
-    return {"message": "Fingerprint enrolled and stored in Firebase", "id": request.id, "alias": request.alias}
+    return {"message": "Fingerprint enrolled", "id": request.id, "alias": request.alias}
+
 
 
 @app.post("/match")

@@ -29,12 +29,12 @@ function Homepage() {
 
     return (
         <div style={{ textAlign: 'center', marginTop: '50px' }}>
-            <h1>Welcome to Homepage!</h1>
-            <p>Click any of the buttons below:</p>
+            <h1>Welcome to our company!</h1>
+            <p>Identification check:</p>
             <div>
                 <Button variant="contained" color="primary" onClick={() => handleClick(1)} style={buttonStyle}>Register</Button>
-                <Button variant="contained" color="secondary" onClick={() => handleClick(2)} style={buttonStyle}>Login</Button>
-                <Button variant="contained" color="success" onClick={() => handleClick(3)} style={buttonStyle}>Admin</Button>
+                <Button variant="contained" color="secondary" onClick={() => handleClick(2)} style={buttonStyle}>Authenticate</Button>
+                <Button variant="contained" color="success" onClick={() => handleClick(3)} style={buttonStyle}>Informations</Button>
                 <Button variant="contained" color="error" onClick={() => handleClick(4)} style={buttonStyle}>Delete</Button>
             </div>
             <div style={{ marginTop: '20px' }}>

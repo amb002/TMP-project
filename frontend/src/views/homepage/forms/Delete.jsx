@@ -16,7 +16,7 @@ const DeleteFingerprint = () => {
     }
 
     try {
-      const response = await axios.delete(`http://localhost:8000/fingerprint/${fingerprintId}`);
+      const response = await axios.post(`http://localhost:8000/delete/${fingerprintId}`);
       setMessage(response.data.message);
       setFingerprintId("");
     } catch (err) {

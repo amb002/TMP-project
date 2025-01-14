@@ -114,6 +114,35 @@ def save_fingerprint_image():
         f.write(bytearray(image_data))
     return {"message": "Fingerprint image saved as 'fingerprint_image.raw'"}
 
+@app.get("/matches/{alias}")
+def get_matches(alias: str):
+    """Retrieve all matches for a specific alias."""
+    ref = db.reference("fingerprints")
+    fingerprints = ref.get()
+
+    if not fingerprints:
+        raise HTTPException(status_code=404, detail="No fingerprints found.")
+
+    matches = []
+    for fingerprint_id, data in fingerprints.items():
+        if data.get("alias") == alias and "matches" in data:
+            match_entries = data["matches"]
+            for match_id, match_data in match_entries.items():
+                matches.append({
+                    "fingerprint_id": fingerprint_id,
+                    "match_id": match_id,
+                    "timestamp": match_data["timestamp"]
+                })
+
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"No matches found for alias '{alias}'.")
+
+    return {
+        "alias": alias,
+        "matches": matches
+    }
+
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}

@@ -10,7 +10,11 @@ import board
 import adafruit_fingerprint
 import serial
 from datetime import datetime
-import pytz
+from PIL import Image
+import numpy as np
+import io
+import base64
+import json
 
 gui_endpoint = "http://localhost:3000"
 database_url = "https://fingerprint-project-10f1a-default-rtdb.firebaseio.com/"
@@ -46,15 +50,19 @@ def enroll_fingerprint(request: EnrollRequest):
     print("Place your finger on the sensor to enroll...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
+    image_data = finger.get_fpdata(sensorbuffer="image")
     if finger.image_2_tz(1) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to template fingerprint.")
     if finger.store_model(request.id) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to store fingerprint in sensor.")
+    
+    img_str = save_fingerprint_image(image_data)
 
     ref = db.reference(f"fingerprints/{request.id}")
     ref.set({
         "id": request.id,
-        "alias": request.alias
+        "alias": request.alias,
+        "image": img_str
     })
     return {"message": "Fingerprint enrolled", "id": request.id, "alias": request.alias}
 
@@ -102,16 +110,40 @@ def delete_fingerprint(fingerprint_id: int):
     ref.delete()
     return {"message": f"Fingerprint {fingerprint_id} deleted."}
 
-@app.post("/save-image")
-def save_fingerprint_image():
+def save_fingerprint_image(image_data):
     """Save a fingerprint image."""
-    print("Place your finger on the sensor to capture the image...")
-    while finger.get_image() != adafruit_fingerprint.OK:
-        pass
-    image_data = finger.get_fpdata(sensorbuffer="image")
-    with open("fingerprint_image.raw", "wb") as f:
-        f.write(bytearray(image_data))
-    return {"message": "Fingerprint image saved as 'fingerprint_image.raw'"}
+    # image_width = 256
+    # image_height = 144
+
+    # img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
+
+    # img = Image.fromarray(img_array, mode="L")
+
+    # img.save(f"{image_id}.png")
+    
+    # print("Fingerprint image saved as 'fingerprint_image.png'")
+    # while finger.get_image() != adafruit_fingerprint.OK:
+    #     pass
+    # image_data = finger.get_fpdata(sensorbuffer="image")
+    # with open(f"fingerprint_image.raw", "wb") as f:
+    #     f.write(bytearray(image_data))
+    
+    image_width = 256
+    image_height = 144
+
+    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
+
+    img = Image.fromarray(img_array, mode="L")
+
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    base64_image = base64.b64encode(buffer.read()).decode('utf-8')
+
+    # firebase_db.child("fingerprints").child(image_id).set({"image": base64_image})
+    
+    return {"message": "Fingerprint image saved as 'fingerprint_image.raw'", "image": base64_image}
 
 @app.get("/matches/{alias}")
 def get_matches(alias: str):
@@ -135,7 +167,7 @@ def get_matches(alias: str):
                         "timestamp": match_data["timestamp"]
                     })
 
-    elif isinstance(fingerprints, dict):  # Handle dictionary format
+    elif isinstance(fingerprints, dict):
         for fingerprint_id, data in fingerprints.items():
             if data.get("alias") == alias and "matches" in data:
                 match_entries = data["matches"]
@@ -165,16 +197,16 @@ def get_aliases():
 
     aliases = []
 
-    if isinstance(fingerprints, list):  # Handle list format
+    if isinstance(fingerprints, list):
         for fingerprint_id, data in enumerate(fingerprints):
-            if data:  # Skip empty entries in the list
+            if data:
                 alias = data.get("alias", "Unknown")
                 aliases.append({
                     "id": fingerprint_id,
                     "alias": alias
                 })
 
-    elif isinstance(fingerprints, dict):  # Handle dictionary format
+    elif isinstance(fingerprints, dict):
         for fingerprint_id, data in fingerprints.items():
             alias = data.get("alias", "Unknown")
             aliases.append({

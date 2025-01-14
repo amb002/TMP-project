@@ -143,7 +143,7 @@ def delete_fingerprint():
         return False
 
     # Remove from local dataset
-    global fingerprint_features, fingerprint_labels
+    global knn_model, fingerprint_features, fingerprint_labels
     if delete_id in fingerprint_labels:
         index = fingerprint_labels.index(delete_id)
         del fingerprint_features[index]

@@ -96,9 +96,11 @@ def store_fingerprint():
     fingerprint_features.append(features)
     fingerprint_labels.append(label)
 
-    # Train the SVM model
-    scaled_features = scaler.fit_transform(fingerprint_features)
-    svm_model.fit(scaled_features, fingerprint_labels)
+    # Train the SVM model only if there are at least two classes
+    if len(set(fingerprint_labels)) > 1:
+        scaled_features = scaler.fit_transform(fingerprint_features)
+        svm_model.fit(scaled_features, fingerprint_labels)
+
     save_persistent_data()
     print(f"Fingerprint stored with ID: {label}. Total fingerprints stored: {len(fingerprint_labels)}")
     return True
@@ -116,19 +118,27 @@ def match_fingerprint():
         print("No fingerprints stored. Please enroll fingerprints first.")
         return False
 
-    # Scale the features and predict
-    try:
-        current_features_scaled = scaler.transform([current_features])
-        prediction = svm_model.predict(current_features_scaled)
-        probabilities = svm_model.predict_proba(current_features_scaled)[0]
-        confidence = max(probabilities)
-        if confidence > 0.7:  # Threshold for confidence
-            print(f"Fingerprint matched with ID: {prediction[0]} (Confidence: {confidence:.2f})")
+    # Check if we have enough data for SVM prediction
+    if len(set(fingerprint_labels)) > 1:
+        try:
+            current_features_scaled = scaler.transform([current_features])
+            prediction = svm_model.predict(current_features_scaled)
+            probabilities = svm_model.predict_proba(current_features_scaled)[0]
+            confidence = max(probabilities)
+            if confidence > 0.7:  # Threshold for confidence
+                print(f"Fingerprint matched with ID: {prediction[0]} (Confidence: {confidence:.2f})")
+                return True
+            else:
+                print(f"No confident match found. Best guess ID: {prediction[0]} (Confidence: {confidence:.2f})")
+        except Exception as e:
+            print(f"Error during ML matching: {e}")
+
+    # Fallback to simple matching for a single fingerprint
+    print("Using fallback matching for a single fingerprint...")
+    for i, stored_features in enumerate(fingerprint_features):
+        if np.array_equal(current_features, stored_features):
+            print(f"Fingerprint matched with ID: {fingerprint_labels[i]} (Fallback Matching)")
             return True
-        else:
-            print(f"No confident match found. Best guess ID: {prediction[0]} (Confidence: {confidence:.2f})")
-    except Exception as e:
-        print(f"Error during ML matching: {e}")
 
     print("No match found.")
     return False
@@ -149,12 +159,13 @@ def delete_fingerprint():
         del fingerprint_labels[index]
         print(f"Fingerprint with ID {delete_id} removed from the local dataset.")
 
-        # Retrain the SVM model
-        if fingerprint_features:
+        # Retrain the SVM model only if we have at least two classes
+        if len(set(fingerprint_labels)) > 1:
             scaled_features = scaler.fit_transform(fingerprint_features)
             svm_model.fit(scaled_features, fingerprint_labels)
         else:
-            svm_model = SVC(probability=True, kernel="linear")
+            svm_model = SVC(probability=True, kernel="linear")  # Reset model
+
     else:
         print(f"Fingerprint with ID {delete_id} not found in the local dataset.")
 

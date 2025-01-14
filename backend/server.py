@@ -56,7 +56,7 @@ def enroll_fingerprint(request: EnrollRequest):
     if finger.store_model(request.id) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to store fingerprint in sensor.")
     
-    img_str = save_fingerprint_image(image_data)
+    img_str = encode_fingerprint_image(image_data)
 
     ref = db.reference(f"fingerprints/{request.id}")
     ref.set({
@@ -73,6 +73,8 @@ def match_fingerprint():
     print("Place your finger on the sensor to match...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
+    image_data = finger.get_fpdata(sensorbuffer="image")
+    scanned_img_str = encode_fingerprint_image(image_data)
     if finger.image_2_tz(1) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to template fingerprint.")
     if finger.finger_fast_search() != adafruit_fingerprint.OK:
@@ -82,6 +84,7 @@ def match_fingerprint():
     ref = db.reference(f"fingerprints/{matched_id}")
     
     alias = ref.get().get("alias", "Unknown")
+    matched_img_str = ref.get().get("image")
     
     timestamp = datetime.now()
     human_readable_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -96,6 +99,8 @@ def match_fingerprint():
         "id": matched_id,
         "alias": alias,
         "confidence": finger.confidence,
+        "scanned_img_str": scanned_img_str,
+        "matched_img_str": matched_img_str,
         "timestamp": human_readable_timestamp
     }
 
@@ -110,24 +115,7 @@ def delete_fingerprint(fingerprint_id: int):
     ref.delete()
     return {"message": f"Fingerprint {fingerprint_id} deleted."}
 
-def save_fingerprint_image(image_data):
-    """Save a fingerprint image."""
-    # image_width = 256
-    # image_height = 144
-
-    # img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
-
-    # img = Image.fromarray(img_array, mode="L")
-
-    # img.save(f"{image_id}.png")
-    
-    # print("Fingerprint image saved as 'fingerprint_image.png'")
-    # while finger.get_image() != adafruit_fingerprint.OK:
-    #     pass
-    # image_data = finger.get_fpdata(sensorbuffer="image")
-    # with open(f"fingerprint_image.raw", "wb") as f:
-    #     f.write(bytearray(image_data))
-    
+def encode_fingerprint_image(image_data):
     image_width = 256
     image_height = 144
 
@@ -140,10 +128,8 @@ def save_fingerprint_image(image_data):
     buffer.seek(0)
 
     base64_image = base64.b64encode(buffer.read()).decode('utf-8')
-
-    # firebase_db.child("fingerprints").child(image_id).set({"image": base64_image})
     
-    return {"message": "Fingerprint image saved as 'fingerprint_image.raw'", "image": base64_image}
+    return base64_image
 
 @app.get("/matches/{alias}")
 def get_matches(alias: str):

@@ -142,7 +142,7 @@ def get_matches(alias: str):
 
     matches = []
 
-    if isinstance(fingerprints, list):  # Handle list format
+    if isinstance(fingerprints, list):
         for fingerprint_id, data in enumerate(fingerprints):
             if data and data.get("alias") == alias and "matches" in data:
                 match_entries = data["matches"]

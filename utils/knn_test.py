@@ -78,19 +78,25 @@ def store_fingerprint():
         print("Failed to template fingerprint.")
         return False
     print("Storing fingerprint...")
-    template_data = finger.get_fpdata(sensorbuffer="image")
+    template_data = finger.get_fpdata(sensorbuffer="character")
     features = extract_features(template_data)
+
+    # Check for duplicates
+    if any(np.array_equal(features, stored_features) for stored_features in fingerprint_features):
+        print("Fingerprint already exists. Skipping enrollment.")
+        return False
+
     label = len(fingerprint_features) + 1
     fingerprint_features.append(features)
     fingerprint_labels.append(label)
-    # Train the kNN model
     knn_model.fit(fingerprint_features, fingerprint_labels)
     save_persistent_data()
     print(f"Fingerprint stored with ID: {label}. Total fingerprints stored: {len(fingerprint_features)}")
     return True
 
+
 def match_fingerprint():
-    """Match a fingerprint against stored templates using ML or fallback to Adafruit library."""
+    """Match a fingerprint against stored templates using ML or fallback."""
     print("Place your finger on the sensor to match...")
     while finger.get_image() != adafruit_fingerprint.OK:
         pass
@@ -99,13 +105,13 @@ def match_fingerprint():
         print("Failed to template fingerprint.")
         return False
     print("Extracting fingerprint data for matching...")
-    current_template = finger.get_fpdata(sensorbuffer="image")
+    current_template = finger.get_fpdata(sensorbuffer="character")
     current_features = extract_features(current_template)
     
     if not fingerprint_features:
         print("No fingerprints stored. Please enroll fingerprints first.")
         return False
-    # Try matching using KNN
+
     try:
         prediction = knn_model.predict([current_features])
         distance, index = knn_model.kneighbors([current_features], n_neighbors=1, return_distance=True)

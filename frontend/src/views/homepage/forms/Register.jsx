@@ -1,10 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const RegisterFingerprint = () => {
   const [id, setId] = useState("");
   const [alias, setAlias] = useState("");
   const [message, setMessage] = useState("");
+  const [uniqueId, setUniqueId] = useState("");
+
+  useEffect(() => {
+    const fetchUniqueId = async () => {
+      try {
+        const response = await axios.get("http://127.0.0.1:8000/aliases");
+        const aliases = response.data.aliases;
+        const usedIds = aliases.map((alias) => alias.id);
+        const nextId = Math.max(0, ...usedIds) + 1;
+        setUniqueId(nextId);
+        setId(nextId.toString());
+      } catch (error) {
+        setMessage(
+          error.response
+            ? `Error: ${error.response.data.detail}`
+            : `Error: ${error.message}`
+        );
+      }
+    };
+
+    fetchUniqueId();
+  }, []);
 
   const handleRegister = async () => {
     try {
@@ -30,6 +52,7 @@ const RegisterFingerprint = () => {
         placeholder="Enter Fingerprint ID"
         value={id}
         onChange={(e) => setId(e.target.value)}
+        disabled
       />
       <input
         type="text"

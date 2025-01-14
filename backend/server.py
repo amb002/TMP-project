@@ -9,6 +9,7 @@ from digitalio import DigitalInOut, Direction
 import board
 import adafruit_fingerprint
 import serial
+from datetime import datetime
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -69,13 +70,21 @@ def match_fingerprint():
 
     matched_id = finger.finger_id
     ref = db.reference(f"fingerprints/{matched_id}")
+
     alias = ref.get().get("alias", "Unknown")
+    
+    timestamp = datetime.utcnow().isoformat()
+    matches_ref = ref.child("matches")
+    matches_ref.push({
+        "timestamp": timestamp
+    })
 
     return {
         "message": "Fingerprint matched",
         "id": matched_id,
         "alias": alias,
-        "confidence": finger.confidence
+        "confidence": finger.confidence,
+        "timestamp": timestamp
     }
 
 @app.post("/delete/{fingerprint_id}")

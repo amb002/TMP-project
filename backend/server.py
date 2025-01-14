@@ -116,7 +116,7 @@ def enroll_fingerprint(request: EnrollRequest):
     ref.set({
         "id": request.id,
         "alias": request.alias,
-        "raw_data": template_data.tolist()  # Convert to list for JSON compatibility
+        "raw_data": template_data
     })
 
     save_persistent_data()

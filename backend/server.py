@@ -120,7 +120,7 @@ def get_matches(alias: str):
     fingerprints = ref.get()
 
     if not fingerprints:
-        raise HTTPException(status_code=404, detail="No fingerprints found.")
+        raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
 
     matches = []
     for fingerprint_id, data in fingerprints.items():
@@ -140,6 +140,7 @@ def get_matches(alias: str):
         "alias": alias,
         "matches": matches
     }
+
     
 @app.get("/aliases")
 def get_aliases():
@@ -148,7 +149,7 @@ def get_aliases():
     fingerprints = ref.get()
 
     if not fingerprints:
-        raise HTTPException(status_code=404, detail="No fingerprints found.")
+        raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
 
     aliases = []
     for fingerprint_id, data in fingerprints.items():
@@ -159,6 +160,7 @@ def get_aliases():
         })
 
     return {"aliases": aliases}
+
 
 @app.get("/")
 def read_root():

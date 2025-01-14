@@ -12,11 +12,15 @@ import serial
 from datetime import datetime
 import pytz
 
+gui_endpoint = "http://localhost:3000"
+database_url = "https://fingerprint-project-10f1a-default-rtdb.firebaseio.com/"
+
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[gui_endpoint],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,7 +28,7 @@ app.add_middleware(
 
 cred = credentials.Certificate("secret.json")
 firebase_admin.initialize_app(cred, {
-    "databaseURL": "https://fingerprint-project-10f1a-default-rtdb.firebaseio.com/"
+    "databaseURL": database_url
 })
 
 led = DigitalInOut(board.D13)

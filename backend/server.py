@@ -123,15 +123,28 @@ def get_matches(alias: str):
         raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
 
     matches = []
-    for fingerprint_id, data in fingerprints.items():
-        if data.get("alias") == alias and "matches" in data:
-            match_entries = data["matches"]
-            for match_id, match_data in match_entries.items():
-                matches.append({
-                    "fingerprint_id": fingerprint_id,
-                    "match_id": match_id,
-                    "timestamp": match_data["timestamp"]
-                })
+
+    if isinstance(fingerprints, list):  # Handle list format
+        for fingerprint_id, data in enumerate(fingerprints):
+            if data and data.get("alias") == alias and "matches" in data:
+                match_entries = data["matches"]
+                for match_id, match_data in match_entries.items():
+                    matches.append({
+                        "fingerprint_id": fingerprint_id,
+                        "match_id": match_id,
+                        "timestamp": match_data["timestamp"]
+                    })
+
+    elif isinstance(fingerprints, dict):  # Handle dictionary format
+        for fingerprint_id, data in fingerprints.items():
+            if data.get("alias") == alias and "matches" in data:
+                match_entries = data["matches"]
+                for match_id, match_data in match_entries.items():
+                    matches.append({
+                        "fingerprint_id": fingerprint_id,
+                        "match_id": match_id,
+                        "timestamp": match_data["timestamp"]
+                    })
 
     if not matches:
         raise HTTPException(status_code=404, detail=f"No matches found for alias '{alias}'.")
@@ -141,7 +154,6 @@ def get_matches(alias: str):
         "matches": matches
     }
 
-    
 @app.get("/aliases")
 def get_aliases():
     """Retrieve all fingerprint IDs and their aliases."""
@@ -152,12 +164,23 @@ def get_aliases():
         raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
 
     aliases = []
-    for fingerprint_id, data in fingerprints.items():
-        alias = data.get("alias", "Unknown")
-        aliases.append({
-            "id": int(fingerprint_id),
-            "alias": alias
-        })
+
+    if isinstance(fingerprints, list):  # Handle list format
+        for fingerprint_id, data in enumerate(fingerprints):
+            if data:  # Skip empty entries in the list
+                alias = data.get("alias", "Unknown")
+                aliases.append({
+                    "id": fingerprint_id,
+                    "alias": alias
+                })
+
+    elif isinstance(fingerprints, dict):  # Handle dictionary format
+        for fingerprint_id, data in fingerprints.items():
+            alias = data.get("alias", "Unknown")
+            aliases.append({
+                "id": int(fingerprint_id),
+                "alias": alias
+            })
 
     return {"aliases": aliases}
 

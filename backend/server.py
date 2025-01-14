@@ -90,6 +90,16 @@ class EnrollRequest(BaseModel):
     id: int
     alias: str
 
+import base64
+
+def extract_features_as_string(template_data):
+    """Extract and encode features from the fingerprint template as a string."""
+    features = np.array(template_data).flatten()
+    # Convert features to a Base64 encoded string
+    features_string = base64.b64encode(features.tobytes()).decode('utf-8')
+    return features_string
+
+@app.post("/enroll")
 def enroll_fingerprint(request: EnrollRequest):
     """Enroll a new fingerprint."""
     print("Place your finger on the sensor to enroll...")
@@ -102,25 +112,24 @@ def enroll_fingerprint(request: EnrollRequest):
         raise HTTPException(status_code=400, detail="ID already exists. Please choose a unique ID.")
 
     template_data = finger.get_fpdata(sensorbuffer="image")
-    features = extract_features(template_data)
-
-    # Convert raw data to a Base64-encoded string
-    raw_data_str = base64.b64encode(bytearray(template_data)).decode("utf-8")
-
-    fingerprint_features.append(features)
+    features_string = extract_features_as_string(template_data)
+    fingerprint_features.append(features_string)
     fingerprint_labels.append(request.id)
     aliases[request.id] = request.alias
 
-    # Store in Firebase
+    # Train the k-NN model with numerical features
+    numeric_features = [np.frombuffer(base64.b64decode(f), dtype=np.uint8) for f in fingerprint_features]
+    knn_model.fit(numeric_features, fingerprint_labels)
+    save_persistent_data()
+
+    # Store fingerprint data in Firebase
     ref = db.reference(f"fingerprints/{request.id}")
     ref.set({
         "id": request.id,
         "alias": request.alias,
-        "raw_data": raw_data_str
+        "features": features_string
     })
 
-    knn_model.fit(fingerprint_features, fingerprint_labels)
-    save_persistent_data()
     return {"message": "Fingerprint enrolled", "id": request.id, "alias": request.alias}
 
 

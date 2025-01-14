@@ -12,7 +12,6 @@ import serial
 from datetime import datetime
 import pytz
 
-# Initialize FastAPI app
 app = FastAPI()
 
 app.add_middleware(
@@ -23,13 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Firebase initialization
 cred = credentials.Certificate("secret.json")
 firebase_admin.initialize_app(cred, {
     "databaseURL": "https://fingerprint-project-10f1a-default-rtdb.firebaseio.com/"
 })
 
-# Fingerprint sensor initialization
 led = DigitalInOut(board.D13)
 led.direction = Direction.OUTPUT
 uart = serial.Serial("/dev/ttyS0", baudrate=57600, timeout=1)
@@ -50,7 +47,6 @@ def enroll_fingerprint(request: EnrollRequest):
     if finger.store_model(request.id) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to store fingerprint in sensor.")
 
-    # Save fingerprint metadata in Firebase
     ref = db.reference(f"fingerprints/{request.id}")
     ref.set({
         "id": request.id,
@@ -98,7 +94,6 @@ def delete_fingerprint(fingerprint_id: int):
     if finger.delete_model(fingerprint_id) != adafruit_fingerprint.OK:
         raise HTTPException(status_code=400, detail="Failed to delete fingerprint from sensor.")
 
-    # Delete fingerprint metadata from Firebase
     ref = db.reference(f"fingerprints/{fingerprint_id}")
     ref.delete()
     return {"message": f"Fingerprint {fingerprint_id} deleted."}

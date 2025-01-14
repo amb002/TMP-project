@@ -7,8 +7,8 @@ const MatchList = () => {
   const [error, setError] = useState("");
 
   const handleSearch = async () => {
-    setError(""); // Reset error state
-    setMatches([]); // Reset matches state
+    setError("");
+    setMatches([]);
 
     try {
       const response = await axios.get(`http://localhost:8000/matches/${alias}`);

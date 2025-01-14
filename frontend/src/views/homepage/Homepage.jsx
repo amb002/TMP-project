@@ -3,6 +3,7 @@ import Button from '@mui/material/Button';
 import Admin from './forms/Admin';
 import Login from './forms/Login';
 import Register from './forms/Register';
+import DeleteFingerprint from './forms/Delete';
 
 function Homepage() {
     const [formNumber, setFormNumber] = useState(null);
@@ -19,6 +20,8 @@ function Homepage() {
                 return <Login />;
             case 3:
                 return <Admin />;
+            case 4:
+                return <DeleteFingerprint />
             default:
                 return null;
         }
@@ -32,6 +35,7 @@ function Homepage() {
                 <Button variant="contained" color="primary" onClick={() => handleClick(1)} style={buttonStyle}>Register</Button>
                 <Button variant="contained" color="secondary" onClick={() => handleClick(2)} style={buttonStyle}>Login</Button>
                 <Button variant="contained" color="success" onClick={() => handleClick(3)} style={buttonStyle}>Admin</Button>
+                <Button variant="contained" color="red" onClick={() => handleClick(4)} style={buttonStyle}>Delete</Button>
             </div>
             <div style={{ marginTop: '20px' }}>
                 {renderForm()}

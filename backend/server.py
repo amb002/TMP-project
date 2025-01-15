@@ -137,12 +137,21 @@ def decode_img(png_file_path):
         base64_img_str = base64.b64encode(img_binary).decode("utf-8")
     return base64_img_str
 
-def encode_fingerprint_image(fingerprint_data):
-    image = Image.open(BytesIO(fingerprint_data))
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    encoded_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
-    return encoded_image
+def encode_fingerprint_image(image_data):
+    image_width = 256
+    image_height = 144
+
+    img_array = np.array(image_data, dtype=np.uint8).reshape((image_height, image_width))
+
+    img = Image.fromarray(img_array, mode="L")
+
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    base64_image = base64.b64encode(buffer.read()).decode('utf-8')
+    
+    return base64_image
 
 @app.on_event("startup")
 async def on_startup():

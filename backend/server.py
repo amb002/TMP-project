@@ -22,7 +22,7 @@ if USE_MODEL:
     from tensorflow.keras import layers, models
     import cv2
 
-database_url = "https://fingerprint-project-10f1a-default-rtdb.firebaseio.com/"
+database_url = "https://tmp-project-1dae9-default-rtdb.firebaseio.com/"
 cred = credentials.Certificate("secret.json")
 firebase_admin.initialize_app(cred, {"databaseURL": database_url})
 uart = serial.Serial("/dev/ttyS0", baudrate=57600, timeout=1)

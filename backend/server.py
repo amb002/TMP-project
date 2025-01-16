@@ -234,3 +234,33 @@ def delete_fingerprint(fingerprint_id: int):
     ref = db.reference(f"fingerprints/{fingerprint_id}")
     ref.delete()
     return {"message": f"Fingerprint {fingerprint_id} deleted."}
+
+@app.get("/aliases")
+def get_aliases():
+    """Retrieve all fingerprint IDs and their aliases."""
+    ref = db.reference("fingerprints")
+    fingerprints = ref.get()
+
+    if not fingerprints:
+        raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
+
+    aliases = []
+
+    if isinstance(fingerprints, list):
+        for fingerprint_id, data in enumerate(fingerprints):
+            if data:
+                alias = data.get("alias", "Unknown")
+                aliases.append({
+                    "id": fingerprint_id,
+                    "alias": alias
+                })
+
+    elif isinstance(fingerprints, dict):
+        for fingerprint_id, data in fingerprints.items():
+            alias = data.get("alias", "Unknown")
+            aliases.append({
+                "id": int(fingerprint_id),
+                "alias": alias
+            })
+
+    return {"aliases": aliases}

@@ -264,3 +264,44 @@ def get_aliases():
             })
 
     return {"aliases": aliases}
+
+@app.get("/matches/{alias}")
+def get_matches(alias: str):
+    """Retrieve all matches for a specific alias."""
+    ref = db.reference("fingerprints")
+    fingerprints = ref.get()
+
+    if not fingerprints:
+        raise HTTPException(status_code=404, detail="No fingerprints found in the database.")
+
+    matches = []
+
+    if isinstance(fingerprints, list):
+        for fingerprint_id, data in enumerate(fingerprints):
+            if data and data.get("alias") == alias and "matches" in data:
+                match_entries = data["matches"]
+                for match_id, match_data in match_entries.items():
+                    matches.append({
+                        "fingerprint_id": fingerprint_id,
+                        "match_id": match_id,
+                        "timestamp": match_data["timestamp"]
+                    })
+
+    elif isinstance(fingerprints, dict):
+        for fingerprint_id, data in fingerprints.items():
+            if data.get("alias") == alias and "matches" in data:
+                match_entries = data["matches"]
+                for match_id, match_data in match_entries.items():
+                    matches.append({
+                        "fingerprint_id": fingerprint_id,
+                        "match_id": match_id,
+                        "timestamp": match_data["timestamp"]
+                    })
+
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"No matches found for alias '{alias}'.")
+
+    return {
+        "alias": alias,
+        "matches": matches
+    }

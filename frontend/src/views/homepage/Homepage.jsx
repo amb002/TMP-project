@@ -29,7 +29,7 @@ function Homepage() {
 
     return (
         <div style={{ textAlign: 'center', marginTop: '50px' }}>
-            <h1>Welcome to our company!</h1>
+            <h1>Welcome!</h1>
             <p>Identification check:</p>
             <div>
                 <Button variant="contained" color="primary" onClick={() => handleClick(1)} style={buttonStyle}>Register</Button>
